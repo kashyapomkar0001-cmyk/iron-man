@@ -53,4 +53,5 @@ function speak(text: string) {
   utterance.pitch = 1;
   utterance.volume = 1;
 
-  speechSynthesis.speak(
+speechSynthesis.speak(utterance);
+}
