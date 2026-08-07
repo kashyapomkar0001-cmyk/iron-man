@@ -1,3 +1,4 @@
+import { askJarvis } from "./ai";
 export function initVoiceAssistant() {
   const SpeechRecognition =
     (window as any).SpeechRecognition ||
@@ -35,9 +36,25 @@ export function initVoiceAssistant() {
       status.textContent = `You: ${transcript}`;
     }
 
-    if (transcript.toLowerCase().includes("jarvis")) {
-      speak("Yes Sir, I am online.");
-    }
+   if (transcript.toLowerCase().includes("jarvis")) {
+  const question = transcript
+    .toLowerCase()
+    .replace("jarvis", "")
+    .trim();
+
+  if (!question) {
+    speak("Yes Sir.");
+    return;
+  }
+
+  askJarvis(question)
+    .then((reply) => {
+      speak(reply);
+    })
+    .catch(() => {
+      speak("Sorry Sir. Something went wrong.");
+    });
+   } 
   };
 
   recognition.onerror = (e: any) => {
