@@ -24,27 +24,26 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    console.log("Using model: gemini-2.5-flash-lite");
+
     const response = await ai.models.generateContent({
-model: "gemini-2.5-flash-lite"
-  contents: prompt,
-});
-   
-    return res.status(200).json({
-      reply: response.text ?? "No response received.",
+      model: "gemini-2.5-flash-lite",
+      contents: prompt,
     });
 
-} catch (error: any) {
-  console.error("FULL ERROR:", error);
-  console.error("MESSAGE:", error?.message);
-  console.error("STACK:", error?.stack);
+    console.log("Gemini Response:", response);
 
-  return res.status(500).json({
-    reply: error?.message || "Internal Server Error",
-  });
-}
+    return res.status(200).json({
+      reply: response.text || "No response received.",
+    });
+
+  } catch (error: any) {
+    console.error("FULL ERROR:", error);
+    console.error("MESSAGE:", error?.message);
+    console.error("STACK:", error?.stack);
 
     return res.status(500).json({
-      reply: error?.stack || error?.message || JSON.stringify(error),
+      reply: error?.message || "Internal Server Error",
     });
   }
 }
