@@ -25,10 +25,10 @@ export default async function handler(req: any, res: any) {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
+  model: "gemini-2.5-flash-lite",
+  contents: prompt,
+});
+   
     return res.status(200).json({
       reply: response.text ?? "No response received.",
     });
