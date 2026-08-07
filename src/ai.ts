@@ -1,25 +1,22 @@
 export async function askJarvis(prompt: string): Promise<string> {
-  const text = prompt.toLowerCase();
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
 
-  if (text.includes("hello")) {
-    return "Hello Sir. All systems are online.";
+    if (!response.ok) {
+      return "Sorry Sir, server error.";
+    }
+
+    const data = await response.json();
+
+    return data.reply || "Sorry Sir, I have no response.";
+  } catch (error) {
+    console.error(error);
+    return "Sorry Sir, I cannot connect to my AI brain.";
   }
-
-  if (text.includes("time")) {
-    return `Current time is ${new Date().toLocaleTimeString()}`;
-  }
-
-  if (text.includes("date")) {
-    return `Today is ${new Date().toDateString()}`;
-  }
-
-  if (text.includes("your name")) {
-    return "I am JARVIS, your AI assistant.";
-  }
-
-  if (text.includes("who made you")) {
-    return "I am currently running in development mode.";
-  }
-
-  return "Sorry Sir, I cannot answer that yet.";
 }
