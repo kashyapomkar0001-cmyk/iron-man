@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+console.log("API KEY FOUND:", !!process.env.GEMINI_API_KEY);
+
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
 });
@@ -12,6 +14,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    console.log("Prompt:", req.body);
+
     const { prompt } = req.body;
 
     if (!prompt) {
@@ -28,10 +32,12 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({
       reply: response.text ?? "No response received.",
     });
-catch (error: any) {
-  console.error(error);
 
-  return res.status(500).json({
-    reply: error?.stack || error?.message || JSON.stringify(error),
-  });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(500).json({
+      reply: error?.stack || error?.message || JSON.stringify(error),
+    });
+  }
 }
