@@ -28,11 +28,10 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({
       reply: response.text ?? "No response received.",
     });
-  } catch (error: any) {
-    console.error("Gemini Error:", error);
+catch (error: any) {
+  console.error(error);
 
-    return res.status(500).json({
-      reply: error?.message || "Internal Server Error",
-    });
-  }
+  return res.status(500).json({
+    reply: error?.stack || error?.message || JSON.stringify(error),
+  });
 }
