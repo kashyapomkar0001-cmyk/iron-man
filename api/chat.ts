@@ -2,8 +2,6 @@ import { GoogleGenAI } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -11,13 +9,13 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  try {
-    if (!ai) {
-      return res.status(500).json({
-        reply: "Gemini API key is not configured on Vercel.",
-      });
-    }
+  if (!apiKey) {
+    return res.status(500).json({
+      reply: "Gemini API key is missing.",
+    });
+  }
 
+  try {
     const { prompt } = req.body || {};
 
     if (!prompt || typeof prompt !== "string") {
@@ -26,8 +24,12 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const ai = new GoogleGenAI({
+      apiKey,
+    });
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.5-flash-lite",
       contents: prompt.slice(0, 8000),
     });
 
@@ -35,11 +37,13 @@ export default async function handler(req: any, res: any) {
 
     if (!reply) {
       return res.status(200).json({
-        reply: "Sorry Sir, I didn't receive a response.",
+        reply: "Sorry Sir, I did not receive a response.",
       });
     }
 
-    return res.status(200).json({ reply });
+    return res.status(200).json({
+      reply,
+    });
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
@@ -48,24 +52,24 @@ export default async function handler(req: any, res: any) {
 
     if (status === 429) {
       return res.status(429).json({
-        reply: "Sir, Gemini is temporarily busy. Please try again in a little while.",
+        reply: "Sir, Gemini quota is temporarily exceeded. Please try again later.",
       });
     }
 
     if (status === 403) {
       return res.status(403).json({
-        reply: "Sir, Gemini API access is currently unavailable for this project.",
+        reply: "Sir, Gemini API access is not available for this project.",
       });
     }
 
     if (status === 404) {
       return res.status(404).json({
-        reply: "Sir, the selected Gemini model is unavailable.",
+        reply: "Sir, the Gemini model is not available for this API project.",
       });
     }
 
     return res.status(500).json({
-      reply: "Sorry Sir, I couldn't generate a response right now.",
+      reply: "Sorry Sir, I couldn't generate a response.",
     });
   }
 }
