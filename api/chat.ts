@@ -25,7 +25,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const response = await ai.models.generateContent({
- model: "gemini-2.0-flash"
+model: "gemini-2.5-flash-lite"
   contents: prompt,
 });
    
@@ -33,8 +33,15 @@ export default async function handler(req: any, res: any) {
       reply: response.text ?? "No response received.",
     });
 
-  } catch (error: any) {
-    console.error(error);
+} catch (error: any) {
+  console.error("FULL ERROR:", error);
+  console.error("MESSAGE:", error?.message);
+  console.error("STACK:", error?.stack);
+
+  return res.status(500).json({
+    reply: error?.message || "Internal Server Error",
+  });
+}
 
     return res.status(500).json({
       reply: error?.stack || error?.message || JSON.stringify(error),
