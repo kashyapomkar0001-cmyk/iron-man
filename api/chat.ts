@@ -14,8 +14,11 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    console.log("API KEY FOUND:", !!process.env.GEMINI_API_KEY);
+    console.log("Prompt:", prompt);
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
@@ -37,7 +40,7 @@ export default async function handler(req: any, res: any) {
 
     const data = await response.json();
 
-    console.log("Gemini Response:", data);
+    console.log("Gemini Response:", JSON.stringify(data));
 
     if (!response.ok) {
       return res.status(response.status).json({
@@ -50,8 +53,9 @@ export default async function handler(req: any, res: any) {
         data?.candidates?.[0]?.content?.parts?.[0]?.text ||
         "No response received.",
     });
+
   } catch (error: any) {
-    console.error(error);
+    console.error("FULL ERROR:", error);
 
     return res.status(500).json({
       reply: error?.message || "Internal Server Error",
