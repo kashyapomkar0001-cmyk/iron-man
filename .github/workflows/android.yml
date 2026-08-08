@@ -1,36 +1,41 @@
 name: Build Jarvis Android App
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Java 17
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
+      # 3. Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
 
+      # 4. Create Android project
       - name: Create Android project
+        shell: bash
         run: |
-          mkdir -p jarvis-android/app/src/main/java/com/jarvis/control
-          mkdir -p jarvis-android/app/src/main/res/values
+          set -e
 
-          cat > jarvis-android/settings.gradle <<'EOF'
+          mkdir -p JarvisControl/app/src/main/java/com/jarvis/control
+          mkdir -p JarvisControl/app/src/main/res/values
+
+          cat > JarvisControl/settings.gradle <<'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -51,14 +56,20 @@ jobs:
           include(":app")
           EOF
 
-          cat > jarvis-android/build.gradle <<'EOF'
+          cat > JarvisControl/build.gradle <<'EOF'
           plugins {
               id 'com.android.application' version '8.7.3' apply false
               id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
           }
           EOF
 
-          cat > jarvis-android/app/build.gradle <<'EOF'
+          cat > JarvisControl/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > JarvisControl/app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
@@ -75,24 +86,27 @@ jobs:
                   versionCode 1
                   versionName '1.0'
               }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
           }
           EOF
 
-          cat > jarvis-android/app/src/main/res/values/strings.xml <<'EOF'
-          <resources>
-              <string name="app_name">Jarvis Control</string>
-          </resources>
-          EOF
-
-          cat > jarvis-android/app/src/main/AndroidManifest.xml <<'EOF'
+          cat > JarvisControl/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.CAMERA" />
-
               <application
-                  android:theme="@style/AppTheme"
-                  android:label="@string/app_name"
-                  android:allowBackup="true">
+                  android:allowBackup="true"
+                  android:label="JARVIS"
+                  android:supportsRtl="true"
+                  android:theme="@style/AppTheme">
 
                   <activity
                       android:name=".MainActivity"
@@ -110,106 +124,75 @@ jobs:
           </manifest>
           EOF
 
-          cat > jarvis-android/app/src/main/res/values/styles.xml <<'EOF'
+          cat > JarvisControl/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:colorAccent">#00AEEF</item>
+                  <item name="android:windowLightStatusBar">false</item>
+
               </style>
+
           </resources>
           EOF
 
-          cat > jarvis-android/app/src/main/java/com/jarvis/control/MainActivity.kt <<'EOF'
+          cat > JarvisControl/app/src/main/java/com/jarvis/control/MainActivity.kt <<'EOF'
           package com.jarvis.control
 
           import android.app.Activity
           import android.os.Bundle
-          import android.hardware.camera2.CameraManager
-          import android.content.Context
-          import android.media.AudioManager
-          import android.widget.Button
+          import android.graphics.Color
+          import android.view.Gravity
           import android.widget.LinearLayout
           import android.widget.TextView
 
           class MainActivity : Activity() {
 
-              private var flashlightOn = false
-
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
-                  val layout = LinearLayout(this)
-                  layout.orientation = LinearLayout.VERTICAL
-                  layout.setPadding(40, 80, 40, 40)
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      gravity = Gravity.CENTER
+                      setPadding(40, 40, 40, 40)
+                  }
 
-                  val title = TextView(this)
-                  title.text = "🤖 JARVIS CONTROL"
-                  title.textSize = 28f
+                  val title = TextView(this).apply {
+                      text = "JARVIS"
+                      textSize = 40f
+                      setTextColor(Color.BLACK)
+                      gravity = Gravity.CENTER
+                  }
 
-                  val flashlight = Button(this)
-                  flashlight.text = "🔦 Flashlight ON / OFF"
-
-                  val volumeUp = Button(this)
-                  volumeUp.text = "🔊 Volume UP"
-
-                  val volumeDown = Button(this)
-                  volumeDown.text = "🔉 Volume DOWN"
+                  val status = TextView(this).apply {
+                      text = "JARVIS Android System Ready"
+                      textSize = 18f
+                      setTextColor(Color.DKGRAY)
+                      gravity = Gravity.CENTER
+                      setPadding(0, 30, 0, 0)
+                  }
 
                   layout.addView(title)
-                  layout.addView(flashlight)
-                  layout.addView(volumeUp)
-                  layout.addView(volumeDown)
+                  layout.addView(status)
 
                   setContentView(layout)
-
-                  flashlight.setOnClickListener {
-                      toggleFlashlight()
-                  }
-
-                  volumeUp.setOnClickListener {
-                      changeVolume(AudioManager.ADJUST_RAISE)
-                  }
-
-                  volumeDown.setOnClickListener {
-                      changeVolume(AudioManager.ADJUST_LOWER)
-                  }
-              }
-
-              private fun toggleFlashlight() {
-                  try {
-                      val cameraManager =
-                          getSystemService(Context.CAMERA_SERVICE) as CameraManager
-
-                      val cameraId = cameraManager.cameraIdList.firstOrNull()
-
-                      if (cameraId != null) {
-                          flashlightOn = !flashlightOn
-                          cameraManager.setTorchMode(cameraId, flashlightOn)
-                      }
-
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
-              }
-
-              private fun changeVolume(direction: Int) {
-                  val audioManager =
-                      getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
-                  audioManager.adjustVolume(
-                      direction,
-                      AudioManager.FLAG_SHOW_UI
-                  )
               }
           }
           EOF
 
+      # 5. Build APK
       - name: Build APK
-        working-directory: jarvis-android
-        run: gradle assembleDebug
+        working-directory: JarvisControl
+        run: |
+          gradle --version
+          gradle assembleDebug --stacktrace
 
+      # 6. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Jarvis-Control-APK
-          path: jarvis-android/app/build/outputs/apk/debug/app-debug.apk
+          name: Jarvis-debug-apk
+          path: JarvisControl/app/build/outputs/apk/debug/app-debug.apk                  
