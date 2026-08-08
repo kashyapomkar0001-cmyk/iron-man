@@ -11,22 +11,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # ----------------------------------------
       # 1. Checkout repository
+      # ----------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ----------------------------------------
       # 2. Java 17
+      # ----------------------------------------
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # ----------------------------------------
       # 3. Gradle
+      # ----------------------------------------
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # ----------------------------------------
       # 4. Create Android project
+      # ----------------------------------------
       - name: Create Android project
         shell: bash
         run: |
@@ -34,7 +43,11 @@ jobs:
 
           mkdir -p JarvisControl/app/src/main/java/com/jarvis/control
           mkdir -p JarvisControl/app/src/main/res/values
+          mkdir -p JarvisControl/app/src/main/res/xml
 
+          # ------------------------------------
+          # settings.gradle
+          # ------------------------------------
           cat > JarvisControl/settings.gradle <<'EOF'
           pluginManagement {
               repositories {
@@ -46,6 +59,7 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
               repositories {
                   google()
                   mavenCentral()
@@ -53,9 +67,13 @@ jobs:
           }
 
           rootProject.name = "JarvisControl"
+
           include(":app")
           EOF
 
+          # ------------------------------------
+          # Root build.gradle
+          # ------------------------------------
           cat > JarvisControl/build.gradle <<'EOF'
           plugins {
               id 'com.android.application' version '8.7.3' apply false
@@ -63,12 +81,18 @@ jobs:
           }
           EOF
 
+          # ------------------------------------
+          # gradle.properties
+          # ------------------------------------
           cat > JarvisControl/gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           EOF
 
+          # ------------------------------------
+          # app/build.gradle
+          # ------------------------------------
           cat > JarvisControl/app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
@@ -83,8 +107,9 @@ jobs:
                   applicationId 'com.jarvis.control'
                   minSdk 26
                   targetSdk 35
-                  versionCode 1
-                  versionName '1.0'
+
+                  versionCode 2
+                  versionName '1.1'
               }
 
               compileOptions {
@@ -98,9 +123,26 @@ jobs:
           }
           EOF
 
+          # ------------------------------------
+          # AndroidManifest.xml
+          # ------------------------------------
           cat > JarvisControl/app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <!-- Microphone permission for voice commands -->
+              <uses-permission
+                  android:name="android.permission.RECORD_AUDIO" />
+
+              <!-- Speech recognition service visibility -->
+              <queries>
+                  <intent>
+                      <action
+                          android:name="android.speech.RecognitionService" />
+                  </intent>
+              </queries>
 
               <application
                   android:allowBackup="true"
@@ -108,91 +150,543 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/AppTheme">
 
+                  <!-- Main JARVIS screen -->
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
 
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
+
+                          <category
+                              android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
+
+                  <!--
+                      JARVIS Accessibility Service
+
+                      Android binds this service only after
+                      the user explicitly enables it in Settings.
+                  -->
+                  <service
+                      android:name=".JarvisAccessibilityService"
+                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                      android:exported="true"
+                      android:label="JARVIS Control Service">
+
+                      <intent-filter>
+                          <action
+                              android:name="android.accessibilityservice.AccessibilityService" />
+                      </intent-filter>
+
+                      <meta-data
+                          android:name="android.accessibilityservice"
+                          android:resource="@xml/accessibility_service_config" />
+
+                  </service>
 
               </application>
 
           </manifest>
           EOF
 
-          cat > JarvisControl/app/src/main/res/values/styles.xml <<'EOF'
+          # ------------------------------------
+          # strings.xml
+          # ------------------------------------
+          cat > JarvisControl/app/src/main/res/values/strings.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
+
           <resources>
 
-              <style name="AppTheme"
+              <string name="app_name">JARVIS</string>
+
+              <string name="accessibility_service_description">
+                  JARVIS uses Android accessibility controls to perform
+                  user-requested device navigation actions.
+              </string>
+
+          </resources>
+          EOF
+
+          # ------------------------------------
+          # styles.xml
+          # ------------------------------------
+          cat > JarvisControl/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+
+          <resources>
+
+              <style
+                  name="AppTheme"
                   parent="android:style/Theme.Material.Light.NoActionBar">
 
                   <item name="android:fontFamily">sans</item>
+
                   <item name="android:windowLightStatusBar">false</item>
+
+                  <item name="android:colorAccent">#1565C0</item>
 
               </style>
 
           </resources>
           EOF
 
+          # ------------------------------------
+          # Accessibility Service configuration
+          # ------------------------------------
+          cat > JarvisControl/app/src/main/res/xml/accessibility_service_config.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+
+          <accessibility-service
+              xmlns:android="http://schemas.android.com/apk/res/android"
+
+              android:description="@string/accessibility_service_description"
+
+              android:accessibilityEventTypes="typeViewClicked|typeViewFocused"
+
+              android:accessibilityFeedbackType="feedbackGeneric"
+
+              android:accessibilityFlags="flagDefault"
+
+              android:notificationTimeout="100"
+
+              android:canRetrieveWindowContent="true"
+
+              android:canPerformGestures="true" />
+          EOF
+
+          # ------------------------------------
+          # MainActivity.kt
+          # ------------------------------------
           cat > JarvisControl/app/src/main/java/com/jarvis/control/MainActivity.kt <<'EOF'
           package com.jarvis.control
 
+          import android.Manifest
           import android.app.Activity
+          import android.content.Intent
+          import android.content.pm.PackageManager
           import android.os.Bundle
-          import android.graphics.Color
+          import android.provider.Settings
+          import android.speech.RecognizerIntent
+          import android.speech.SpeechRecognizer
           import android.view.Gravity
+          import android.widget.Button
           import android.widget.LinearLayout
+          import android.widget.ScrollView
           import android.widget.TextView
+          import java.util.Locale
 
           class MainActivity : Activity() {
+
+              private lateinit var statusText: TextView
+              private lateinit var commandText: TextView
+
+              private val speechRequestCode = 1001
+              private val microphoneRequestCode = 1002
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
-                  val layout = LinearLayout(this).apply {
+                  buildInterface()
+              }
+
+              private fun buildInterface() {
+
+                  val root = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
-                      gravity = Gravity.CENTER
-                      setPadding(40, 40, 40, 40)
+                      gravity = Gravity.CENTER_HORIZONTAL
+                      setPadding(32, 40, 32, 40)
                   }
 
                   val title = TextView(this).apply {
                       text = "JARVIS"
-                      textSize = 40f
-                      setTextColor(Color.BLACK)
+                      textSize = 42f
                       gravity = Gravity.CENTER
                   }
 
-                  val status = TextView(this).apply {
-                      text = "JARVIS Android System Ready"
+                  val subtitle = TextView(this).apply {
+                      text = "Android Control System"
+                      textSize = 20f
+                      gravity = Gravity.CENTER
+                      setPadding(0, 10, 0, 30)
+                  }
+
+                  statusText = TextView(this).apply {
+                      text = "Status: Ready"
                       textSize = 18f
-                      setTextColor(Color.DKGRAY)
                       gravity = Gravity.CENTER
-                      setPadding(0, 30, 0, 0)
+                      setPadding(0, 10, 0, 20)
                   }
 
-                  layout.addView(title)
-                  layout.addView(status)
+                  commandText = TextView(this).apply {
+                      text = "Command: —"
+                      textSize = 18f
+                      gravity = Gravity.CENTER
+                      setPadding(0, 10, 0, 30)
+                  }
 
-                  setContentView(layout)
+                  val voiceButton = Button(this).apply {
+                      text = "🎤  TALK TO JARVIS"
+
+                      setOnClickListener {
+                          startVoiceCommand()
+                      }
+                  }
+
+                  val accessibilityButton = Button(this).apply {
+                      text = "⚙️  ENABLE JARVIS CONTROL"
+
+                      setOnClickListener {
+                          openAccessibilitySettings()
+                      }
+                  }
+
+                  val backButton = Button(this).apply {
+                      text = "⬅️  BACK"
+
+                      setOnClickListener {
+                          JarvisAccessibilityService.performBack()
+                      }
+                  }
+
+                  val homeButton = Button(this).apply {
+                      text = "🏠  HOME"
+
+                      setOnClickListener {
+                          JarvisAccessibilityService.performHome()
+                      }
+                  }
+
+                  val recentButton = Button(this).apply {
+                      text = "📱  RECENT APPS"
+
+                      setOnClickListener {
+                          JarvisAccessibilityService.performRecents()
+                      }
+                  }
+
+                  root.addView(title)
+                  root.addView(subtitle)
+                  root.addView(statusText)
+                  root.addView(commandText)
+
+                  root.addView(
+                      voiceButton,
+                      LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      )
+                  )
+
+                  root.addView(
+                      accessibilityButton,
+                      LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      )
+                  )
+
+                  root.addView(
+                      backButton,
+                      LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      )
+                  )
+
+                  root.addView(
+                      homeButton,
+                      LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      )
+                  )
+
+                  root.addView(
+                      recentButton,
+                      LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      )
+                  )
+
+                  val scrollView = ScrollView(this)
+
+                  scrollView.addView(root)
+
+                  setContentView(scrollView)
+              }
+
+              private fun startVoiceCommand() {
+
+                  if (
+                      checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                      != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      requestPermissions(
+                          arrayOf(Manifest.permission.RECORD_AUDIO),
+                          microphoneRequestCode
+                      )
+
+                      return
+                  }
+
+                  if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+
+                      statusText.text =
+                          "Voice recognition is not available on this device."
+
+                      return
+                  }
+
+                  val intent = Intent(
+                      RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                  ).apply {
+
+                      putExtra(
+                          RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                          RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                      )
+
+                      putExtra(
+                          RecognizerIntent.EXTRA_LANGUAGE,
+                          Locale.getDefault()
+                      )
+
+                      putExtra(
+                          RecognizerIntent.EXTRA_PROMPT,
+                          "Speak to JARVIS"
+                      )
+                  }
+
+                  statusText.text = "Listening..."
+
+                  startActivityForResult(
+                      intent,
+                      speechRequestCode
+                  )
+              }
+
+              override fun onActivityResult(
+                  requestCode: Int,
+                  resultCode: Int,
+                  data: Intent?
+              ) {
+                  super.onActivityResult(
+                      requestCode,
+                      resultCode,
+                      data
+                  )
+
+                  if (requestCode != speechRequestCode) {
+                      return
+                  }
+
+                  val results =
+                      data?.getStringArrayListExtra(
+                          RecognizerIntent.EXTRA_RESULTS
+                      )
+
+                  val command =
+                      results?.firstOrNull()
+
+                  if (command.isNullOrBlank()) {
+
+                      statusText.text = "No command detected."
+
+                      return
+                  }
+
+                  commandText.text =
+                      "Command: $command"
+
+                  statusText.text =
+                      "Command received."
+
+                  executeCommand(command)
+              }
+
+              private fun executeCommand(command: String) {
+
+                  val text =
+                      command.lowercase(Locale.getDefault())
+
+                  when {
+
+                      text.contains("home") ||
+                      text.contains("go home") -> {
+
+                          JarvisAccessibilityService.performHome()
+                      }
+
+                      text.contains("back") -> {
+
+                          JarvisAccessibilityService.performBack()
+                      }
+
+                      text.contains("recent") ||
+                      text.contains("recent apps") -> {
+
+                          JarvisAccessibilityService.performRecents()
+                      }
+
+                      text.contains("settings") -> {
+
+                          startActivity(
+                              Intent(Settings.ACTION_SETTINGS)
+                          )
+                      }
+
+                      text.contains("accessibility") -> {
+
+                          openAccessibilitySettings()
+                      }
+
+                      else -> {
+
+                          statusText.text =
+                              "Command understood, but this action is not enabled yet."
+                      }
+                  }
+              }
+
+              private fun openAccessibilitySettings() {
+
+                  try {
+
+                      startActivity(
+                          Intent(
+                              Settings.ACTION_ACCESSIBILITY_SETTINGS
+                          )
+                      )
+
+                  } catch (e: Exception) {
+
+                      statusText.text =
+                          "Could not open Accessibility Settings."
+                  }
+              }
+
+              override fun onRequestPermissionsResult(
+                  requestCode: Int,
+                  permissions: Array<out String>,
+                  grantResults: IntArray
+              ) {
+
+                  super.onRequestPermissionsResult(
+                      requestCode,
+                      permissions,
+                      grantResults
+                  )
+
+                  if (requestCode == microphoneRequestCode) {
+
+                      if (
+                          grantResults.isNotEmpty() &&
+                          grantResults[0] ==
+                          PackageManager.PERMISSION_GRANTED
+                      ) {
+
+                          statusText.text =
+                              "Microphone permission granted."
+
+                          startVoiceCommand()
+
+                      } else {
+
+                          statusText.text =
+                              "Microphone permission is required for voice commands."
+                      }
+                  }
               }
           }
           EOF
 
+          # ------------------------------------
+          # JarvisAccessibilityService.kt
+          # ------------------------------------
+          cat > JarvisControl/app/src/main/java/com/jarvis/control/JarvisAccessibilityService.kt <<'EOF'
+          package com.jarvis.control
+
+          import android.accessibilityservice.AccessibilityService
+          import android.view.accessibility.AccessibilityEvent
+
+          class JarvisAccessibilityService :
+              AccessibilityService() {
+
+              companion object {
+
+                  private var instance:
+                      JarvisAccessibilityService? = null
+
+                  fun performBack() {
+
+                      instance?.performGlobalAction(
+                          GLOBAL_ACTION_BACK
+                      )
+                  }
+
+                  fun performHome() {
+
+                      instance?.performGlobalAction(
+                          GLOBAL_ACTION_HOME
+                      )
+                  }
+
+                  fun performRecents() {
+
+                      instance?.performGlobalAction(
+                          GLOBAL_ACTION_RECENTS
+                      )
+                  }
+              }
+
+              override fun onServiceConnected() {
+
+                  super.onServiceConnected()
+
+                  instance = this
+              }
+
+              override fun onAccessibilityEvent(
+                  event: AccessibilityEvent?
+              ) {
+                  // Events are intentionally not acted upon automatically.
+                  // Future JARVIS commands will trigger explicit actions.
+              }
+
+              override fun onInterrupt() {
+                  // Required lifecycle callback.
+              }
+
+              override fun onDestroy() {
+
+                  if (instance === this) {
+                      instance = null
+                  }
+
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+      # ----------------------------------------
       # 5. Build APK
+      # ----------------------------------------
       - name: Build APK
         working-directory: JarvisControl
         run: |
           gradle --version
           gradle assembleDebug --stacktrace
 
+      # ----------------------------------------
       # 6. Upload APK
+      # ----------------------------------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Jarvis-debug-apk
-          path: JarvisControl/app/build/outputs/apk/debug/app-debug.apk                  
+          path: JarvisControl/app/build/outputs/apk/debug/app-debug.apk
